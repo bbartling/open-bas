@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Building Automation Schedule</title>
+    <style>
+    
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        #calendar {
+            display: flex;
+        }
+
+        .day-labels {
+            display: flex;
+            flex-direction: row;
+        }
+
+        .day-label {
+            width: 100px;
+            text-align: center;
+            background-color: #EEE;
+            padding: 5px 0;
+            border-right: 1px solid black;
+        }
+
+        .hour-labels {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 5px;
+            box-sizing: border-box;
+            border-right: 1px solid black;
+        }
+
+        .hour-labels div {
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .day {
+            width: 100px;
+            height: 750px; /* Adjusted to 50 slots (24 hours + day name) * 15px */
+            float: left;
+            position: relative;
+            border: 1px solid black;
+            -webkit-user-select: none;  /* Chrome and Safari */
+            -moz-user-select: none;     /* Firefox */
+            -ms-user-select: none;      /* IE10+ */
+            user-select: none;          /* Standard syntax */
+        }
+
+        .day-name {
+            text-align: center;
+            background-color: #EEE;
+            padding: 5px 0;
+            border-bottom: 1px solid black;
+        }
+
+        .selected {
+            background-color: #AAF;
+            position: absolute;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+            font-size: 12px;
+        }
+
+    </style>
+</head>
+
+
+<body>
+    <div class="main-container">
+        <h1>Equipment Run Schedule</h1>
+        <div style="display: flex; align-items: start;">
+            <div id="calendar">
+            <div class="hour-labels">
+                <!-- 24 hour labels from 0 to 23 -->
+                <div>0</div>
+                <div>1</div>
+                <div>2</div>
+                <div>3</div>
+                <div>4</div>
+                <div>5</div>
+                <div>6</div>
+                <div>7</div>
+                <div>8</div>
+                <div>9</div>
+                <div>10</div>
+                <div>11</div>
+                <div>12</div>
+                <div>13</div>
+                <div>14</div>
+                <div>15</div>
+                <div>16</div>
+                <div>17</div>
+                <div>18</div>
+                <div>19</div>
+                <div>20</div>
+                <div>21</div>
+                <div>22</div>
+                <div>23</div>
+            </div>
+            <!-- Weekday names added above the schedule blocks -->
+            <div class="day" id="0">
+                <div class="day-name">Monday</div>
+            </div>
+            <div class="day" id="1">
+                <div class="day-name">Tuesday</div>
+            </div>
+            <div class="day" id="2">
+                <div class="day-name">Wednesday</div>
+            </div>
+            <div class="day" id="3">
+                <div class="day-name">Thursday</div>
+            </div>
+            <div class="day" id="4">
+                <div class="day-name">Friday</div>
+            </div>
+            <div class="day" id="5">
+                <div class="day-name">Saturday</div>
+            </div>
+            <div class="day" id="6">
+                <div class="day-name">Sunday</div>
+            </div>
+        </div>
+        <div style="margin-left: 10px;">
+            <button onclick="saveSchedule()">Save</button>
+            <button onclick="clearSchedule()">Clear Schedule</button>
+        </div>
+    </div>
+    <script>
+        let schedule = {};
+        let isDragging = false;
+        let startBlock = null;
+        let endBlock = null;
+
+        document.querySelectorAll('.day').forEach(day => {
+            const dayNameHeight = day.querySelector('.day-name').offsetHeight;
+
+            day.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startBlock = Math.floor((e.offsetY - dayNameHeight) / 15);
+                // day.style.userSelect = 'none'; 
+            });
+
+            day.addEventListener('mouseup', (e) => {
+                isDragging = false;
+                endBlock = Math.floor((e.offsetY - dayNameHeight) / 15);
+                if (startBlock !== null) {
+                    addSchedule(day.id, startBlock, endBlock);
+                }
+                //day.style.userSelect = '';
+            });
+
+            day.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    endBlock = Math.floor((e.offsetY - dayNameHeight) / 15);
+                    displayTemporarySchedule(day.id, startBlock, endBlock);
+                }
+            });
+        });
+        
+        // Fetch the current schedule on page load
+        document.addEventListener("DOMContentLoaded", function() {
+            fetch('/get_schedule')
+                .then(response => response.json())
+                .then(data => {
+                    if (data && Object.keys(data).length > 0) {
+                        schedule = data;
+                        renderSchedule();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching the schedule:', error);
+                    alert('Error fetching the current schedule. Please try again.');
+                });
+        });
+        
+        function renderSchedule() {
+            // Remove all existing highlights
+            document.querySelectorAll('.selected').forEach(el => el.remove());
+
+            // Add new highlights based on the schedule
+            for (let day in schedule) {
+                for (let block of schedule[day]) {
+                    let start = block[0];
+                    let end = block[1];
+                    let highlight = document.createElement('div');
+                    highlight.className = 'selected';
+                    highlight.style.top = `${start * 15}px`;
+                    highlight.style.height = `${(end - start) * 15}px`;
+
+                    // Convert block to time and set as text content
+                    let startTime = `${Math.floor(start/2)}:${start % 2 === 0 ? '00' : '30'}`;
+                    let endTime = `${Math.floor((end+1)/2)}:${(end+1) % 2 === 0 ? '00' : '30'}`;
+                    highlight.textContent = `${startTime} - ${endTime}`;
+
+                    document.getElementById(day).appendChild(highlight);
+                }
+            }
+        }
+        
+        function clearSchedule() {
+            if (confirm('Are you sure you want to clear the entire schedule?')) {
+                schedule = {};
+                renderSchedule();
+
+                // Optionally, save the cleared schedule on the server immediately
+                saveSchedule();
+            }
+        }
+
+        function addSchedule(day, start, end) {
+            if (!schedule[day]) {
+                schedule[day] = [];
+            }
+            // Ensure start is always less than end
+            if (start > end) {
+                [start, end] = [end, start];
+            }
+            schedule[day].push([start, end]);
+            renderSchedule();
+        }
+
+        function displayTemporarySchedule(day, start, end) {
+            // Remove all existing temporary highlights
+            document.querySelectorAll('.temporary-selected').forEach(el => el.remove());
+
+            // Ensure start is always less than end
+            if (start > end) {
+                [start, end] = [end, start];
+            }
+
+            let highlight = document.createElement('div');
+            highlight.className = 'temporary-selected';
+            highlight.style.top = `${start * 15}px`;
+            highlight.style.height = `${(end - start) * 15}px`;
+            highlight.style.background = 'rgba(0, 128, 255, 0.5)'; // semi-transparent blue for drag effect
+            document.getElementById(day).appendChild(highlight);
+        }
+
+        function renderSchedule() {
+            // Remove all existing highlights
+            document.querySelectorAll('.selected').forEach(el => el.remove());
+
+            // Add new highlights based on the schedule
+            for (let day in schedule) {
+                for (let block of schedule[day]) {
+                    let start = block[0];
+                    let end = block[1];
+                    let highlight = document.createElement('div');
+                    highlight.className = 'selected';
+                    highlight.style.top = `${start * 15}px`;
+                    highlight.style.height = `${(end - start) * 15}px`;
+
+                    // Convert block to time and set as text content
+                    let startTime = `${Math.floor(start / 2)}:${start % 2 === 0 ? '00' : '30'}`;
+                    let endTime = `${Math.floor((end + 1) / 2)}:${(end + 1) % 2 === 0 ? '00' : '30'}`;
+                    highlight.textContent = `${startTime} - ${endTime}`;
+
+                    document.getElementById(day).appendChild(highlight);
+                }
+            }
+        }
+
+        function saveSchedule() {
+            fetch('/update_schedule', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(schedule)
+            })
+            .then(response => response.text())
+            .then(data => {
+                // Display the server response to the user.
+                alert(data);
+            })
+            .catch(error => {
+                // Handle any errors from the server or network issues.
+                console.error('Error:', error);
+                alert('Error saving the schedule. Please try again.');
+            });
+        }
+
+    </script>
+</body>
+</html>

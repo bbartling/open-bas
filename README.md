@@ -12,6 +12,9 @@ FUTURE conecept idea when life permits finding the time to create a free and ope
 * Chart some historical data based on caching, IE., such as a days data only which is common for building operators to only look back on a day at most for troubleshooting purposes. IoT would be required for long term data storage which should the mechanism for long term data storage where on the cloud analytics and fault rules can be ran.
 
 
+### Equipment run schedule example
+![Alt text](/images/schedule_snip.PNG)
+
 ## Author
 
 [LinkedIn](https://www.linkedin.com/in/ben-bartling-510a0961/)
